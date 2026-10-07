@@ -82,3 +82,10 @@ export function portraitSvg(seed: string, gender: string, hijab = ''): string {
   }
   return s + '</svg>'
 }
+
+// ───────────── contact details stay with the bureau (mirrors has_contact_info in schema.sql) ─────────────
+export function hasContactInfo(text: string): boolean {
+  return /[0-9۰-۹٠-٩]{7,}/.test(text.replace(/[\s().+-]/g, ''))
+    || /[^\s@]+@[^\s@]+\.[a-z]{2,}/i.test(text)
+    || /(https?:\/\/|www\.|wa\.me|whatsapp\.com|facebook\.com|fb\.com|instagram\.com|t\.me\/)/i.test(text)
+}

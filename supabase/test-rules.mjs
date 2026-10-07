@@ -113,5 +113,22 @@ expect("member cannot see others' private photos", r.rows.length === 0);
 r = await as(S, `select * from storage.objects where bucket_id='private-photos'`);
 expect("staff sees private photos", r.rows.length === 1);
 
+// contact details never reach published fields
+const C = "44444444-4444-4444-4444-444444444444";
+await db.query(`insert into auth.users values ($1, 'c@x')`, [C]);
+const withAbout = about => as(C, `insert into applications (full_name, phone, gender, dob, profession, city, about) values ('Zara', '0300 9', 'F', '1997-01-01', 'Teacher', 'Multan', $1) returning id`, [about]);
+await throws("phone number in About is blocked", () => withAbout("Call me on 0300 1234567"));
+await throws("phone with dashes is blocked", () => withAbout("whatsapp 0300-123-4567"));
+await throws("phone in Urdu digits is blocked", () => withAbout("رابطہ ۰۳۰۰۱۲۳۴۵۶۷"));
+await throws("email in About is blocked", () => withAbout("email zara.k@gmail.com"));
+await throws("WhatsApp link is blocked", () => withAbout("wa.me/923001234567"));
+await throws("phone in father field is blocked", () => as(C, `insert into applications (full_name, phone, gender, dob, profession, city, father) values ('Zara', '0300 9', 'F', '1997-01-01', 'Teacher', 'Multan', 'Abbu 03001234567')`));
+r = await withAbout("Born 1997, 2 brothers and 1 sister, MSc 2020");
+expect("normal text with years and counts is allowed", r.rows.length === 1);
+r = await as(C, `select phone from applications where user_id=$1`, [C]);
+expect("own private phone field still saves", r.rows[0]?.phone === "0300 9");
+await throws("staff cannot publish contact info either", () => as(S, `update profiles set about='Call 0321 7654321' where pid='RG-1001'`));
+await throws("staff walk-in with phone in About is blocked", () => as(S, `select staff_add_profile('{"full_name":"Noor","gender":"F","dob":"1995-01-01","about":"0333 1112223"}'::jsonb)`));
+
 console.log(fails ? `\n${fails} FAILED` : "\nALL PASSED");
 process.exit(fails ? 1 : 0);

@@ -69,6 +69,19 @@ create table if not exists public.applications (
   reviewed_at   timestamptz
 );
 
+-- Contact details belong to the bureau only. This spots phone numbers (7+ digits, also with spaces or dashes,
+-- also in Urdu digits), email addresses and WhatsApp / social links typed into fields that get published.
+create or replace function public.has_contact_info(t text)
+returns boolean
+language sql immutable
+as $$
+  select coalesce(
+    regexp_replace(t, '[[:space:]().+-]', '', 'g') ~ '[0-9۰-۹٠-٩]{7,}'
+    or t ~* '[^[:space:]@]+@[^[:space:]@]+\.[a-z]{2,}'
+    or t ~* '(https?://|www\.|wa\.me|whatsapp\.com|facebook\.com|fb\.com|instagram\.com|t\.me/)',
+    false)
+$$;
+
 -- Members can only submit or resubmit (status → pending) or ask for removal; staff decide everything else.
 create or replace function public.applications_guard()
 returns trigger
@@ -77,6 +90,10 @@ as $$
 begin
   if new.dob > (current_date - interval '18 years') then
     raise exception 'Profiles can only be registered for people aged 18 or over';
+  end if;
+  if new.status <> 'removal' and public.has_contact_info(concat_ws(' | ', new.full_name, new.caste, new.mother_tongue,
+       new.degree, new.profession, new.city, new.father, new.siblings, new.about)) then
+    raise exception 'CONTACT_INFO: remove phone numbers, emails and links from the biodata; contact details stay with the bureau';
   end if;
   if public.is_staff() then
     return new;
@@ -134,6 +151,23 @@ create table if not exists public.profiles (
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
+
+-- Nothing that reaches members may carry contact details, whoever writes it (staff included).
+create or replace function public.profiles_guard()
+returns trigger
+language plpgsql set search_path = public
+as $$
+begin
+  if public.has_contact_info(concat_ws(' | ', new.first_name, new.caste, new.mother_tongue, new.degree,
+       new.profession, new.city, new.father, new.siblings, new.about)) then
+    raise exception 'CONTACT_INFO: remove phone numbers, emails and links from the biodata; contact details stay with the bureau';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists profiles_guard on public.profiles;
+create trigger profiles_guard before insert or update on public.profiles
+  for each row execute function public.profiles_guard();
 
 -- ───────────────────────── vault: bureau-only details for each published profile ─────────────────────────
 create table if not exists public.vault (

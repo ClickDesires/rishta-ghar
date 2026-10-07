@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { age, feet } from '../lib/bio'
+import { age, feet, hasContactInfo } from '../lib/bio'
 import { squareJpeg } from '../lib/api'
 import { useI18n, type Key } from '../lib/i18n'
 import { EDUCATION, HIJAB, MARITAL, PRACTICE, SALAH, SECTS, type Application, type ApplicationInput } from '../lib/types'
@@ -14,6 +14,9 @@ const BLANK: ApplicationInput = {
 const HEIGHTS = Array.from({ length: 23 }, (_, i) => 56 + i)
 
 export type PhotoChange = Blob | null | 'keep' | 'remove'
+
+/** Fields members can see once published; phone and guardian stay private, so they are not listed. */
+const PUBLIC_TEXT = ['full_name', 'caste', 'mother_tongue', 'degree', 'profession', 'city', 'father', 'siblings', 'about'] as const
 
 function fromApplication(a: Application | null): ApplicationInput {
   const next = { ...BLANK }
@@ -67,13 +70,14 @@ export function ApplicationForm({ initial, submitLabel, onSubmit, onCancel }: Pr
     const missing = (['full_name', 'dob', 'profession', 'city', 'phone'] as const).filter(k => !String(f[k]).trim())
     if (missing.length) { setErr(t('missing', missing.map(k => t(`m_${k}` as const)).join(t('join')))); return }
     if (age(f.dob) < 18) { setErr(t('under18')); return }
+    if (hasContactInfo(PUBLIC_TEXT.map(k => f[k]).join(' | '))) { setErr(t('noContact')); return }
     setErr(''); setBusy(true)
     try {
       await onSubmit({ ...f, hijab: f.gender === 'F' ? f.hijab : '' }, photo)
       setPhoto('keep'); setPreview(null)
     } catch (x) {
       console.error(x)
-      setErr(t('errSave'))
+      setErr(t(String((x as Error)?.message).includes('CONTACT_INFO') ? 'noContact' : 'errSave'))
     }
     setBusy(false)
   }
@@ -125,7 +129,7 @@ export function ApplicationForm({ initial, submitLabel, onSubmit, onCancel }: Pr
         <legend>{t('familyLg')}</legend>
         <label>{t('fatherOcc')}<input {...text('father', 'faPh')} /></label>
         <label>{t('siblings')}<input {...text('siblings', 'sibPh')} /></label>
-        <label className="full">{t('aboutL')}<textarea {...text('about', 'aboutPh')} rows={3} maxLength={2000} /></label>
+        <label className="full">{t('aboutL')}<textarea {...text('about', 'aboutPh')} rows={3} maxLength={2000} /><span className="hint">{t('noContactHint')}</span></label>
       </fieldset>
       <fieldset>
         <legend>{t('privLg')} <span className="hint">{t('privHint')}</span></legend>

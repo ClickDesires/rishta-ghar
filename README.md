@@ -6,7 +6,7 @@ Families can install it on their home screen like a normal app, and nothing need
 - **Families** browse published biodata, shortlist, see match scores, register their own biodata and send interests.
 - **Bureau staff** review applications, publish profiles, record each family's answer to an interest, and download biodata images to share on WhatsApp.
 - **Languages:** English and Urdu (right to left). Button labels stay in English.
-- **Privacy:** members only see first names. Phone numbers, full names, guardians and private photos are visible only to bureau staff. These rules are enforced by the database itself, not just hidden in the app.
+- **Privacy:** contact details are for the bureau (admin) only. Members see first names; phone numbers, full names, guardians and private photos are visible only to bureau staff. Phone numbers, emails and WhatsApp/social links typed into public fields (such as About) are refused. These rules are enforced by the database itself, not just hidden in the app.
 
 Built with React + TypeScript (Vite), Supabase (login, database, photo storage) and `vite-plugin-pwa` (installable app, offline-ready).
 
